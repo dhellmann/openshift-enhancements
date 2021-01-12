@@ -62,7 +62,7 @@ The downsides of requiring a bootstrap node for Single Node OpenShift are:
 * Describe an approach for installing Single Node OpenShift in a BareMetal environment for production use.
 * The implementation should require minimal changes to the OpenShift installer and the should not affect existing deployment flows.
 * Installation should result a clean Single Node OpenShift without any bootstrap leftovers.
-
+* Describe an approach that can be carried out by a user manually or automated by an orchestration tool.
 
 ### Non-Goals
 
