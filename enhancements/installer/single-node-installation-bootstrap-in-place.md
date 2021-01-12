@@ -130,108 +130,120 @@ for the features supported by the configuration.
 
 ### Implementation Details/Notes/Constraints
 
-The OpenShift installer `create ignition-configs` command will generate a `bootstrap-in-place-for-live-iso.ign`
-file when the number of replicas for the control plane (in the `install-config.yaml`) is `1`.
+The installation images for single-node clusters will be unique for
+each cluster. The user or orchestration tool will create an
+installation image by combining the
+`bootstrap-in-place-for-live-iso.ign` created by the installer with an
+RHCOS live image using `coreos-install embed`. Making the image unique
+allows us to build on the existing RHCOS live image, instead of
+delivering a different base image, and means that the user does not
+need any infrastructure to serve Ignition configs to hosts during
+deployment.
 
-The `bootstrap-in-place-for-live-iso.ign` will be embedded into an RHCOS liveCD by the user using the `coreos-install embed` command.
-
-The user will boot a machine with this liveCD and the liveCD will start executing a similar flow to a bootstrap node in a regular installation.
-
-`bootkube.sh` running on the live ISO will execute the rendering logic.
-The live ISO environment provides a scratch place to write bootstrapping files so that they don't end up on the real node. This eliminates a potential source of errors and confusion when debugging problems.
-
-The bootstrap static pods will be generated in a way that the control plane operators will be able to identify them and either continue in a controlled way for the next revision, or just keep them as the correct revision and reuse them.
-
-`cluster-bootstrap` will apply all the required manifests (under ``/opt/openshift/manifests/``)
-
-Bootkube will get the master Ignition from `machine-config-server` and
-generate an updated master Ignition combining the original ignition with the control plane static pods manifests and all required resources including etcd data.
-`bootkube.sh` will write the new master Ignition along with RHCOS to disk.
-At this point `bootkube` will reboot the node and let it complete the cluster creation.
-
-After the host reboots, the `kubelet` service will start the control plane static pods.
-Kubelet will send a CSR (see below) and join the cluster.
-CVO will deploy all cluster operators.
-The control plane operators will rollout a new revision (if necessary).
+In order to add a viable, working etcd post reboot, we will take a
+snapshot of etcd and add it to the Ignition config for the host.
+After rebooting, we will use the restored `etcd-member` from the
+snapshot to rebuild the database. This allows etcd and the API service
+to come up on the host without having to re-apply all of the
+kubernetes operations run during bootstrapping.
 
 #### OpenShift-installer
 
-We will add logic to the installer to create `bootstrap-in-place-for-live-iso.ign` Ignition config.
-This Ignition config will diverge from the default bootstrap Ignition:
-bootkube.sh:
-1. Start cluster-bootstrap without required pods (`--required-pods=''`)
-2. Run cluster-bootstrap with `--bootstrap-in-place` entrypoint to enrich the master Ignition.
-3. Write RHCOS image and the master Ignition to disk.
+The OpenShift installer will be updated so that the `create
+ignition-configs` command generates a new
+`bootstrap-in-place-for-live-iso.ign` file when the number of replicas
+for the control plane in the `install-config.yaml` is `1`.
+
+This Ignition config will have a different `bootkube.sh` from the
+default bootstrap Ignition. In addition to the standard rendering
+logic, the modified script will:
+
+1. Start `cluster-bootstrap` without required pods by setting `--required-pods=''`
+2. Run `cluster-bootstrap` with the `--bootstrap-in-place` option.
+3. Fetch the master Ignition and combine it with the original Ignition
+   config, the control plane static pod manifests, the required
+   kubernetes resources, and the bootstrap etcd database snapshot to
+   create a new Ignition config for the host.
+3. Write the RHCOS image and the combined Ignition config to disk.
 4. Reboot the node.
 
 #### Cluster-bootstrap
 
-By default, `cluster-bootstrap` starts the bootstrap control plane and creates all the manifests under ``/opt/openshift/manifests``.
-`cluster-bootstrap` also waits for a list of required pods to be ready. These pods are expected to start running on the control plane nodes.
-In case we are running the bootstrap in place, there is no control plane node that can run those pods. `cluster-bootstrap` should apply the manifest and tear down the control plane. If `cluster-bootstrap` fails to apply some of the manifests, it should return an error.
+`cluster-bootstrap` will have a new entrypoint `--bootstrap-in-place`
+which will get the master Ignition as input and will enrich the master
+Ignition with control plane static pods manifests and all required
+resources, including the etcd database.
 
+`cluster-bootstrap` normally waits for a list of required pods to be
+ready. These pods are expected to start running on the control plane
+nodes when the bootstrap and control plane run in parallel. That is
+not possible when bootstrapping in place, so when `cluster-bootstrap`
+runs with the `--bootstrap-in-place` option it should only apply the
+manifests and then tear down the control plane.
 
-`cluster-bootstrap` will have a new entrypoint `--bootstrap-in-place` which will get the master Ignition as input and will enrich the master Ignition with control plane static pods manifests and all required resources including etcd data.
+If `cluster-bootstrap` fails to apply some of the manifests, it should
+return an error.
 
 #### Bootstrap / Control plane static pods
 
-The control plane components we will add to the master Ignition are (to be placed under `/etc/kubernetes/manifests`):
+The control plane components we will copy from
+`/etc/kubernetes/manifests` into the master Ignition are:
 
 1. etcd-pod
 2. kube-apiserver-pod
 3. kube-controller-manager-pod
 4. kube-scheduler-pod
 
-Control plane required resources to be added to the Ignition:
+These components also require other files generated during bootstrapping:
 
 1. `/var/lib/etcd`
 2. `/etc/kubernetes/bootstrap-configs`
-3. /opt/openshift/tls/* (`/etc/kubernetes/bootstrap-secrets`)
-4. /opt/openshift/auth/kubeconfig-loopback (`/etc/kubernetes/bootstrap-secrets/kubeconfig`)
+3. `/opt/openshift/tls/*` (`/etc/kubernetes/bootstrap-secrets`)
+4. `/opt/openshift/auth/kubeconfig-loopback` (`/etc/kubernetes/bootstrap-secrets/kubeconfig`)
 
-**Note**: `/etc/kubernetes/bootstrap-secrets` and `/etc/kubernetes/bootstrap-configs` will be deleted after the node reboots by the post-reboot service (see below), and the OCP control plane is ready.
+**Note**: `/etc/kubernetes/bootstrap-secrets` and `/etc/kubernetes/bootstrap-configs` will be deleted by the `post-reboot` service, after the node reboots (see below).
 
-The control plane operators (that will run on the node post reboot) will manage the rollout of a new revision of the control plane pods.
+The bootstrap static pods will be generated in a way that the control
+plane operators will be able to identify them and either continue in a
+controlled way for the next revision, or just keep them as the correct
+revision and reuse them.
 
-#### etcd data
+#### Post-reboot service
 
-In order to add a viable, working etcd post reboot, we will take a snapshot of etcd and add it to the master Ignition.
-Post reboot we will use the restored etcd-member from the snapshot.
+We will add a new `post-reboot` service for approving the kubelet and
+the node Certificate Signing Requests. This service will also cleanup
+the bootstrap static pods resources when the OpenShift control plane
+is ready.
 
-Another option is to stop the etcd pod (move the static pod manifest from `/etc/kubernetes/manifests`).
-When stopped, etcd will save its state and exit. We can then add the `/var/lib/etcd` directory to the master Ignition config.
-After the reboot, etcd should start with all the data it had prior to the reboot.
+Since we start with a liveCD, the bootstrap services (`bootkube`, `approve-csr`, etc.), `/etc` and `/opt/openshift` temporary files are written to the ephemeral filesystem of the live image, and not to the node's real filesystem.
 
-#### Post reboot
-
-We will add a new `post-reboot` service for approving the kubelet and the node Certificate Signing Requests.
-This service will also cleanup the bootstrap static pods resources once the OCP control plane is ready.
-Since we start with a liveCD, the bootstrap services (`bootkube`, `approve-csr`, etc.), `/etc` and `/opt/openshift` "garbage" are written to the ephemeral filesystem of the liveCD, and not to the node's real filesystem.
 The files that we need to delete are under:
-`/etc/kubernetes/bootstrap-secrets` and `/etc/kubernetes/bootstrap-configs`
+
+* `/etc/kubernetes/bootstrap-secrets`
+* `/etc/kubernetes/bootstrap-configs`
+
 These files are required for the bootstrap control plane to start before it is replaced by the control plane operators.
 Once the OCP control plane static pods are deployed we can delete the files as they are no longer required.
 
 ### Initial Proof-of-Concept
 
-User flow
-1. Generate bootstrap ignition using the OpenShift installer.
-2. Embed this Ignition to an RHCOS liveCD.
-3. Boot a machine with this liveCD.
+A proof-of-concept implementation is available for experimenting with
+the design.
 
 This POC uses the following services for mitigating some gaps:
-- `patch.service` for allowing single node installation. it won't be required once [single-node production deployment](https://github.com/openshift/enhancements/pull/560/files) is implemented.
+- `patch.service` for allowing single node installation. This won't be required after [single-node production deployment](https://github.com/openshift/enhancements/pull/560) is implemented.
 - `post_reboot.service` for approving the node CSR and bootstrap static pods resources cleanup post reboot.
 
-Steps to try it out:
-- Clone the installer branch: `iBIP_4_6` from https://github.com/eranco74/installer.git
-- Build the installer (`TAGS=libvirt hack/build.sh`)
-- Add your ssh key and pull secret to the `./install-config.yaml`
-- Generate ignition - `make generate`
-- Set up networking - `make network` (provides DNS for `Cluster name: test-cluster, Base DNS: redhat.com`)
-- Download rhcos image - `make embed` (download RHCOS liveCD and embed the bootstrap Ignition)
-- Spin up a VM with the the liveCD - `make start-iso`
-- Monitor the progress using `make ssh` and `journalctl -f -u bootkube.service` or `kubectl --kubeconfig ./mydir/auth/kubeconfig get clusterversion`
+To try it out:
+
+1. Clone the installer branch: `iBIP_4_6` from https://github.com/eranco74/installer.git
+2. Build the installer with the command: `TAGS=libvirt hack/build.sh`
+3. Add your ssh key and pull secret to the `./install-config.yaml`
+4. Generate the Ignition config with the command `make generate`
+5. Set up DNS for `Cluster name: test-cluster, Base DNS: redhat.com` running: `make network`
+6. Download an RHCOS live image and add the bootstrap Ignition config by running: `make embed`
+7. Spin up a VM with the the liveCD with the command: `make start-iso`
+8. Monitor the progress using `make ssh` and `journalctl -f -u bootkube.service` or `kubectl --kubeconfig ./mydir/auth/kubeconfig get clusterversion`
 
 ### Risks and Mitigations
 
