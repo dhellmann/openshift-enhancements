@@ -370,28 +370,47 @@ History`.
 
 ### Installing using remote bootstrap node
 
-Run the bootstrap node in a HUB cluster as VM.
-This approach is appealing because it keeps the current installation flow.
-Requires external dependencies.
+We could continue to run the bootstrap node in a HUB cluster as VM.
+
+This approach is appealing because it keeps the current installation
+flow.
+
 However, there are drawbacks:
-1. It will require Load balancer and DNS per installation.
-2. Deployments run remotely via L3 connection (high latency (up to 150ms), low BW in some cases), this isn't optimal for etcd cluster (one member is running on the bootstrap during the installation)
-3. Running the bootstrap on the HUB cluster present a (resources) scale issue (~50*(8GB+4cores)), limits ACM capacity
 
-### Installing without liveISO
+1. It will require configuring a Load balancer and DNS for each cluster.
+2. In some cases, deployments run over L3 connection with high latency
+   (up to 150ms) and low bandwidth to sites where there is no
+   hypervisor. We would therefore need to run the bootstrap VM
+   remotely, and form the etcd cluster with members on both sides of
+   the poor connection. Since etcd has requirements for low latency,
+   high bandwidth, connections between all nodes, this is not ideal.
+3. The bootstrap VM requires 8GB of RAM and 4 CPU cores. Running the
+   bootstrap VM on the hub cluster constrains the number of
+   simultaneous deployments that can be run based on the CPU and RAM
+   capacity of the hub cluster.
 
-Run the bootstrap flow on the node disk and clean up all the bootstrap residues once the node fully configured.
-This is very similar to the current enhancement installation approach but without the requirement to start from liveCD.
-This approach advantage is that it will work on cloud environment.
-The disadvantage is that it's more prune to result a single node deployment with bootstrap leftovers.
+### Installing without a live image
+
+We could run the bootstrap flow on the node's regular disk and clean
+up all the bootstrap residue once the node is fully configured.  This
+is very similar to the current enhancement installation approach but
+without the requirement to start from a live image.  The advantage of
+this approach is that it will work in a cloud environment as well as
+on bare metal.  The disadvantage is that it is more prone to result in
+a single node deployment with bootstrapping leftovers in place,
+potentially leading to confusion for users or support staff debugging
+the instances.
 
 
-### Installing using a baked Ignition file.
+### Installing using an Ignition config not built into the live image
 
-The installer will generate an ignition config.
-This Ignition configuration includes all assets required for launching the single node cluster (including TLS certificates and keys).
-When booting a machine with CoreOS and this Ignition configuration the Ignition config will lay down the control plane operator static pods.
-The ignition config will also create a static pod that functions as cluster-bootstrap (this pod should delete itself once it’s done) and apply the OCP assets to the control plane.
+We could have the installer generate an Ignition config that includes
+all of the assets required for launching the single node cluster
+(including TLS certificates and keys).  When booting a machine with
+CoreOS and this Ignition configuration, the Ignition config would lay
+down the control plane operator static pods and create a static pod
+that functions as `cluster-bootstrap` This pod should delete itself
+after it is done applying the OCP assets to the control plane.
 
 ### Preserve etcd database instead of a snapshot
 
