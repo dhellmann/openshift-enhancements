@@ -298,15 +298,6 @@ CRDs installed by cluster operators instead of the
 1. How will the user specify custom configuration, such as installation disk, or static IPs?
 2. Number of revisions for the control plane - do we want to make changes to the bootstrap static pods to make them closer to the final ones?
 
-### Bootable installation artifact (future work)
-
-In order to embed the bootstrap-in-place-for-live-iso Ignition config to the liveCD the user need to get the liveCD and the coreos-installer binary.
-We consider adding `openshift-install create single-node-iso` command that that result a liveCD with the bootstrap-in-place-for-live-iso.ign embeded.
-It can also take things like additional manifests for setting the RT kernel (and kernel args) via MachineConfig as well
- as supporting injecting network configuration as files and choosing the target disk drive for coreos-installer.
-Internally, create single-node-iso would compile a single-node-iso-target.yaml into Ignition (much like coreos/fcct)
- and include it along with the Ignition it generates and embed it into the ISO.
-
 ### Test Plan
 
 In order to claim full support for this configuration, we must have
@@ -412,3 +403,21 @@ data it had prior to the reboot. By using a snapshot, instead of
 saving the entire database, we will have more flexibility to change
 the production etcd configuration before restoring the content of the
 database.
+
+### Creating a bootable installation artifact directly from the installer
+
+In order to embed the bootstrap-in-place-for-live-iso Ignition config
+to the liveCD the user needs to download the liveCD image and the
+`coreos-installer` binary.  We considered adding an `openshift-install
+create single-node-iso` command that that result a liveCD with the
+`bootstrap-in-place-for-live-iso.ign` embeded.  The installer command
+could also include custom manifests, especially `MachineConfig`
+instances for setting the realtime kernel, setting kernel args,
+injecting network configuration as files, and choosing the target disk
+drive for `coreos-installer`.  Internally, `create single-node-iso`
+would compile a single-node-iso-target.yaml into Ignition (much like
+coreos/fcct) and include it along with the Ignition it generates and
+embed it into the ISO.
+
+This approach has not been rejected entirely, and may be handled with
+a future enhancement.
