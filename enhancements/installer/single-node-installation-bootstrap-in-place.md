@@ -71,13 +71,53 @@ The downsides of requiring a bootstrap node for Single Node OpenShift are:
 
 ## Proposal
 
-The installer will be enhanced to provide a way to generate a single node ignition configuration.
-The user will be able to boot a RHCOS live CD with that ignition to initiate the installation.
-The live CD will perform the cluster bootstrap flow.
-A master ignition including the control plane static pods will be created as part of the bootstrap. The master ignition will then be used on reboot to complete the installation and bring up Single Node OpenShift.
-Use of the liveCD helps to ensure that we have a clean bootstrap
-flow with just the master ignition as the handoff point.
+The OpenShift install process relies on an ephemeral bootstrap
+environment so that none of the hosts in the running cluster end up
+with unique configuration left over from computing how to create the
+cluster. When the bootstrap virtual machine is removed from the
+process, the temporary files, logs, etc. from that phase should still
+be segregated from the "real" OpenShift files on the host. This means
+it is useful to retain a "bootstrap environment", as long as we can
+avoid requiring a separate host to run a virtual machine.
 
+The focus for single-node deployments right now is edge use cases,
+either for telco RAN deployments or other situations where a user may
+have several instances being managed centrally. That means it is
+important to make it possible to automate the workflow for deploying,
+even if we also want to retain the option for users to deploy by hand.
+In the telco RAN case, single-node deployments will be managed from a
+central "hub" cluster using tools like RHACM, Hive, and metal3.
+
+The baseboard management controller (BMC) in enterprise class hardware
+can be given a URL to an ISO image and told to attach the image to the
+host as though it was inserted into a CD-ROM or DVD drive. An image
+booted from an ISO can use a ramdisk as a place to create temporary
+files, without affecting the persistent storage in the host.  This
+capability makes the existing live ISO for RHCOS a good foundation on
+which to build this feature. A live ISO can serve as the "bootstrap
+environment", separate from the real OpenShift system on persistent
+storage in the host. The BMC in the host can be used to automate
+deployment via a multi-cluster orchestration tool.
+
+The RHCOS live ISO image uses Ignition to configure the host, just as
+the RHCOS image used for running OpenShift does. This means Ignition
+is the most effective way to turn an RHCOS live image into a
+special-purpose image for performing the installation.
+
+We propose the following steps for deploying single-node instances of
+OpenShift:
+
+1. Have the OpenShift installer generate a special Ignition config for
+   a single-node deployment.
+2. Combine that Ignition config with an RHCOS live ISO image to build
+   an image for deploying OpenShift on a single node.
+3. Boot the new image on the host.
+4. Bootstrap the deployment, generating a new master Ignition config
+   and the static pod definitions for OpenShift. Write them, along
+   with an RHCOS image, to the disk in the host.
+5. Reboot the host to the internal disk, discarding the ephemeral live
+   image environment and allowing the previously generated artifacts
+   to complete the installation and bring up OpenShift.
 
 ### User Stories
 
