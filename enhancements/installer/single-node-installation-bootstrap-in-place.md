@@ -72,7 +72,7 @@ The downsides of requiring a bootstrap node for Single Node OpenShift are:
 
 ## Proposal
 
-The installer will be enhanced to provide a way to generate a single node ignition configuration. 
+The installer will be enhanced to provide a way to generate a single node ignition configuration.
 The user will be able to boot a RHCOS live CD with that ignition to initiate the installation.
 The live CD will perform the cluster bootstrap flow.
 A master ignition including the control plane static pods will be created as part of the bootstrap. The master ignition will then be used on reboot to complete the installation and bring up Single Node OpenShift.
@@ -171,7 +171,7 @@ Since we start with a liveCD, the bootstrap services (`bootkube`, `approve-csr`,
 The files that we need to delete are under:
 `/etc/kubernetes/bootstrap-secrets` and `/etc/kubernetes/bootstrap-configs`
 These files are required for the bootstrap control plane to start before it is replaced by the control plane operators.
-Once the OCP control plane static pods are deployed we can delete the files as they are no longer required. 
+Once the OCP control plane static pods are deployed we can delete the files as they are no longer required.
 
 ### Initial Proof-of-Concept
 
@@ -221,9 +221,9 @@ Internally, create single-node-iso would compile a single-node-iso-target.yaml i
 
 ### Limitations
 
-While most CRDs get created by CVO some CRDs are created by the operators, since during the bootstrap phase there is no schedulable node, 
- operators can't run, these CRDs won't be created until the node pivot to become the master node. 
-This imposes a limitation on the user when specifying custom manifests prior to the installation. 
+While most CRDs get created by CVO some CRDs are created by the operators, since during the bootstrap phase there is no schedulable node,
+ operators can't run, these CRDs won't be created until the node pivot to become the master node.
+This imposes a limitation on the user when specifying custom manifests prior to the installation.
 
 These are the CRDs that are not present during bootstrap:
 * clusternetworks.network.openshift.io
@@ -304,24 +304,24 @@ History`.
 
 1. The API will be unavailable from time to time during the installation.
 2. Coreos-installer cannot be used in the cloud environment.
-      
+
 ## Alternatives
 
 ### Installing using remote bootstrap node
 
 Run the bootstrap node in a HUB cluster as VM.
 This approach is appealing because it keeps the current installation flow.
-Requires external dependencies. 
+Requires external dependencies.
 However, there are drawbacks:
 1. It will require Load balancer and DNS per installation.
-2. Deployments run remotely via L3 connection (high latency (up to 150ms), low BW in some cases), this isn't optimal for etcd cluster (one member is running on the bootstrap during the installation) 
+2. Deployments run remotely via L3 connection (high latency (up to 150ms), low BW in some cases), this isn't optimal for etcd cluster (one member is running on the bootstrap during the installation)
 3. Running the bootstrap on the HUB cluster present a (resources) scale issue (~50*(8GB+4cores)), limits ACM capacity
 
 ### Installing without liveISO
 
 Run the bootstrap flow on the node disk and clean up all the bootstrap residues once the node fully configured.
-This is very similar to the current enhancement installation approach but without the requirement to start from liveCD. 
-This approach advantage is that it will work on cloud environment. 
+This is very similar to the current enhancement installation approach but without the requirement to start from liveCD.
+This approach advantage is that it will work on cloud environment.
 The disadvantage is that it's more prune to result a single node deployment with bootstrap leftovers.
 
 
