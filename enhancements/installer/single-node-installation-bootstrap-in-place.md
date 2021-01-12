@@ -67,10 +67,8 @@ The downsides of requiring a bootstrap node for Single Node OpenShift are:
 ### Non-Goals
 
 * Addressing a similar installation flow for multi-node clusters.
-* High-availability for Single Node OpenShift.
 * Single-node-developer (CRC) cluster-profile installation.
-* Supporting cloud deployment for bootstrap in place (since livecd cannot be used). It will be addressed as part of future enhancement.
-* Upgrading Single Node OpenShift will be addressed as part of a future enhancement.
+* Supporting cloud deployment for bootstrap in place. Using a live CD image is challenging in cloud environments, so this work is postponed to a future enhancement.
 
 ## Proposal
 
