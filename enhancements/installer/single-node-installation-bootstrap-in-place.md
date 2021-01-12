@@ -51,11 +51,11 @@ The downsides of requiring a bootstrap node for Single Node OpenShift are:
 
 1. The obvious additional node.
 2. Requires external dependencies:
-   a. Load balancer (only for bootstrap phase)
-   b. Requires DNS (configured per installation)
+   1. Load balancer (only for bootstrap phase)
+   2. Requires DNS (configured per installation)
 3. Cannot use Bare Metal IPI:
-   a. Adds irrelevant dependencies - vips, keepalived, mdns
-   b. Requires same L2 between bootstrap and the Single Node OpenShift
+   1. Adds irrelevant dependencies - vips, keepalived, mdns
+   2. Requires same L2 between bootstrap and the Single Node OpenShift
 
 ### Goals
 
