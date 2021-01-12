@@ -92,7 +92,7 @@ for the features supported by the configuration.
 ### Implementation Details/Notes/Constraints
 
 The OpenShift installer `create ignition-configs` command will generate a `bootstrap-in-place-for-live-iso.ign`
-file, when the number of replicas for the control plane (in the `install-config.yaml`) is `1`.
+file when the number of replicas for the control plane (in the `install-config.yaml`) is `1`.
 
 The `bootstrap-in-place-for-live-iso.ign` will be embedded into an RHCOS liveCD by the user using the `coreos-install embed` command.
 
