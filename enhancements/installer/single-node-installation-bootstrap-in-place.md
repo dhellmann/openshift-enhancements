@@ -363,7 +363,8 @@ History`.
 ## Drawbacks
 
 1. The API will be unavailable from time to time during the installation.
-2. Coreos-installer cannot be used in the cloud environment.
+2. Coreos-installer cannot be used in a cloud environment.
+3. We need to build new integration with RHACM and Hive for orchestration.
 
 ## Alternatives
 
