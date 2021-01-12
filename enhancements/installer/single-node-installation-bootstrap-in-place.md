@@ -400,3 +400,15 @@ The installer will generate an ignition config.
 This Ignition configuration includes all assets required for launching the single node cluster (including TLS certificates and keys).
 When booting a machine with CoreOS and this Ignition configuration the Ignition config will lay down the control plane operator static pods.
 The ignition config will also create a static pod that functions as cluster-bootstrap (this pod should delete itself once it’s done) and apply the OCP assets to the control plane.
+
+### Preserve etcd database instead of a snapshot
+
+Another option for preserving the etcd database when pivoting from
+bootstrap to production is to copy the entire database, instead of
+using a snapshot operation.  When stopped, etcd will save its state
+and exit. We can then add the `/var/lib/etcd` directory to the master
+Ignition config.  After the reboot, etcd should start with all the
+data it had prior to the reboot. By using a snapshot, instead of
+saving the entire database, we will have more flexibility to change
+the production etcd configuration before restoring the content of the
+database.
