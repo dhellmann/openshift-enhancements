@@ -462,6 +462,7 @@ This approach has not been rejected entirely, and may be handled with
 a future enhancement.
 
 ### Allow bootstrap-in-place in cloud environment (future work)
+
 For bootstrap-in-place model to work in cloud environemnt we need to mitigate the following gaps:
 1. The bootstrap-in-place model relay on the live ISO environment as a place to write bootstrapping files so that they don't end up on the real node.
 Optional mitigation: We can mimic this environment by mounting some directories as tmpfs during the bootstrap phase.
@@ -469,12 +470,16 @@ Optional mitigation: We can mimic this environment by mounting some directories 
 Optional mitigation: We can boot the machine with the right RHCOS image for the release.
 Instead of writing the Ignition to disk we will use the cloud credentials to update the node Ignition config in the cloud provider.
 
-### Use `create ignition-configs` with environment variable to generate the `bootstrap-in-place-for-live-iso.ign`.
-We could use the current command for generating Ignition configs
+### Check control plane replica count in `create ignition-configs`
+
+Instead of adding a new installer command, we could use the current command for generating Ignition configs
 `create ignition-configs` to generate the `bootstrap-in-place-for-live-iso.ign` file,
 by adding logic to the installer that check the number of replicas for the control
  plane (in the `install-config.yaml`) is `1`.
 This approach might conflict with CRC/SNC which also run openshift-install with a 1-replica control plane.
+
+### Use `create ignition-configs` with environment variable to generate the `bootstrap-in-place-for-live-iso.ign`.
+
 We also considered adding a new environment variable `OPENSHIFT_INSTALL_EXPERIMENTAL_BOOTSTRAP_IN_PLACE`
 for marking the new path under the `ignition-configs` target.
 We decided to add `single-node-ignition-config` target to in order to gain:
