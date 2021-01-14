@@ -189,12 +189,13 @@ return an error.
 
 #### Bootstrap / Control plane static pods
 
-We will review the list of revisions for apiserver/etcd and see if we can
- reduce them by reducing revisions caused by observations of known conditions.
- For example in a single node we know what the etcd endpoints will be in advance,
- We can avoid a revision by observing this post install.
- This work will go a long way to reducing disruption during install and improve
- MTTR for upgrade re-deployments and failures.
+We will review the list of revisions for apiserver/etcd and see if we
+can reduce them by reducing revisions caused by observations of known
+conditions.  For example in a single node we know what the etcd
+endpoints will be in advance, We can avoid a revision by observing
+this post install.  This work will go a long way to reducing
+disruption during install and improve MTTR for upgrade re-deployments
+and failures.
 
 The control plane components we will copy from
 `/etc/kubernetes/manifests` into the master Ignition are:
