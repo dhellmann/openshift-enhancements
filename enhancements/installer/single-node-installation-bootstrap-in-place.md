@@ -250,19 +250,7 @@ The node IP should be persistent, otherwise TLS SAN will be invalidated and will
 A proof-of-concept implementation is available for experimenting with
 the design.
 
-This POC uses the following services for mitigating some gaps:
-- `patch.service` for allowing single node installation. This won't be required after [single-node production deployment](https://github.com/openshift/enhancements/pull/560) is implemented.
-- `post_reboot.service` for approving the node CSR and bootstrap static pods resources cleanup post reboot.
-
-To try it out:
-
-1. Clone the POC repo: `git clone https://github.com/eranco74/bootstrap-in-place-poc.git`
-2. Copy ./install-config.yaml.tmpl` to ./install-config.yaml` and add your ssh key and pull secret to it
-3. Extract the openshift-installer from the release image and generate ignition - `make generate`
-4. Set up networking - `make network` (provides DNS for `Cluster name: test-cluster, Base DNS: redhat.com`)
-5. Download rhcos image - `make embed` (download RHCOS liveCD and embed the bootstrap Ignition)
-6. Spin up a VM with the the liveCD - `make start-iso`
-7. Monitor the progress using `make ssh` and `journalctl -f -u bootkube.service` or `kubectl --kubeconfig ./mydir/auth/kubeconfig get clusterversion`
+To try it out: [bootstrap-in-place-poc](https://github.com/eranco74/bootstrap-in-place-poc.git)
 
 ### Risks and Mitigations
 
@@ -317,6 +305,23 @@ deployments. This makes those deployments look different in a way that
 may lead to confusion when debugging issues on the cluster. To
 mitigate this, we can add documentation to the troubleshooting guide
 to explain the service and its role in the cluster.
+
+#### Bootstrap logs retention
+ 
+ Due to the bootstrap-in-place behavior all bootstrap artifacts
+ will be lost once the bootstrap the node reboots.
+In a regular installation flow the bootstrap node goes down only once
+ the control plane is running, and the bootstrap node served its purpose.
+In case of bootstrap in place things can go wrong after the reboot.
+The bootstrap logs can aid in troubleshooting a subsequently failed install. 
+
+Mitigation by gathering the bootstrap logs before reboot.
+ bootstrap will gather logs from itself using /usr/local/bin/installer-gather.sh.
+ Once gathering is complete, the bundle will be added to the master ignition,
+ thus making the bootstrap logs available from the master after reboot.
+ The log bundle will be deleted once the installation completes.
+ 
+Retention can be to a location that avoids the possibility of errors or confusion.
 
 ## Design Details
 
@@ -470,6 +475,7 @@ This approach has not been rejected entirely, and may be handled with
 a future enhancement.
 
 ### Allow bootstrap-in-place in cloud environment (future work)
+
 For bootstrap-in-place model to work in cloud environemnt we need to mitigate the following gaps:
 1. The bootstrap-in-place model relay on the live ISO environment as a place to write bootstrapping files so that they don't end up on the real node.
 Optional mitigation: We can mimic this environment by mounting some directories as tmpfs during the bootstrap phase.
@@ -477,12 +483,16 @@ Optional mitigation: We can mimic this environment by mounting some directories 
 Optional mitigation: We can boot the machine with the right RHCOS image for the release.
 Instead of writing the Ignition to disk we will use the cloud credentials to update the node Ignition config in the cloud provider.
 
-### Use `create ignition-configs` with environment variable to generate the `bootstrap-in-place-for-live-iso.ign`.
-We could use the current command for generating Ignition configs
+### Check control plane replica count in `create ignition-configs`
+
+Instead of adding a new installer command, we could use the current command for generating Ignition configs
 `create ignition-configs` to generate the `bootstrap-in-place-for-live-iso.ign` file,
 by adding logic to the installer that check the number of replicas for the control
  plane (in the `install-config.yaml`) is `1`.
 This approach might conflict with CRC/SNC which also run openshift-install with a 1-replica control plane.
+
+### Use `create ignition-configs` with environment variable to generate the `bootstrap-in-place-for-live-iso.ign`.
+
 We also considered adding a new environment variable `OPENSHIFT_INSTALL_EXPERIMENTAL_BOOTSTRAP_IN_PLACE`
 for marking the new path under the `ignition-configs` target.
 We decided to add `single-node-ignition-config` target to in order to gain:
