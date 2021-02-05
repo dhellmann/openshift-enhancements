@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"time"
@@ -161,49 +162,51 @@ func newReportCommand() *cobra.Command {
 			fmt.Fprintf(os.Stderr, "Processed %d pull requests\n", len(all.Requests))
 			fmt.Fprintf(os.Stderr, "Ignored %d pull requests\n", len(ignore.Requests))
 
+			buf := bytes.Buffer{}
+
 			year, month, day := time.Now().Date()
-			fmt.Fprintf(os.Stdout, "# This Week in Enhancements - %d-%.2d-%.2d\n", year, month, day)
+			fmt.Fprintf(&buf, "# This Week in Enhancements - %d-%.2d-%.2d\n", year, month, day)
 
 			// Only print the priority section if there are prioritized pull requests
 			if anyRequests(prioritizedMerged, prioritizedClosed, prioritizedNew, prioritizedActive) {
-				fmt.Printf("\n## Enhancements for Release Priorities\n")
+				fmt.Fprintf(&buf, "\n## Enhancements for Release Priorities\n")
 
 				report.SortByID(prioritizedMerged.Requests)
-				report.ShowPRs(os.Stdout, "Prioritized Merged", prioritizedMerged.Requests, true)
+				report.ShowPRs(&buf, "Prioritized Merged", prioritizedMerged.Requests, true)
 
 				report.SortByID(prioritizedNew.Requests)
-				report.ShowPRs(os.Stdout, "Prioritized New", prioritizedNew.Requests, true)
+				report.ShowPRs(&buf, "Prioritized New", prioritizedNew.Requests, true)
 
 				report.SortByActivityCountDesc(prioritizedActive.Requests)
-				report.ShowPRs(os.Stdout, "Prioritized Active", prioritizedActive.Requests, true)
+				report.ShowPRs(&buf, "Prioritized Active", prioritizedActive.Requests, true)
 
 				report.SortByID(prioritizedClosed.Requests)
-				report.ShowPRs(os.Stdout, "Prioritized Closed", prioritizedClosed.Requests, false)
+				report.ShowPRs(&buf, "Prioritized Closed", prioritizedClosed.Requests, false)
 			}
 
-			fmt.Printf("\n## Other Enhancements\n")
+			fmt.Fprintf(&buf, "\n## Other Enhancements\n")
 
 			report.SortByID(otherMerged.Requests)
-			report.ShowPRs(os.Stdout, "Other Merged", otherMerged.Requests, true)
+			report.ShowPRs(&buf, "Other Merged", otherMerged.Requests, true)
 
 			report.SortByID(otherNew.Requests)
-			report.ShowPRs(os.Stdout, "Other New", otherNew.Requests, true)
+			report.ShowPRs(&buf, "Other New", otherNew.Requests, true)
 
 			report.SortByActivityCountDesc(otherActive.Requests)
-			report.ShowPRs(os.Stdout, "Other Active", otherActive.Requests, false)
+			report.ShowPRs(&buf, "Other Active", otherActive.Requests, false)
 
 			report.SortByID(otherClosed.Requests)
-			report.ShowPRs(os.Stdout, "Other Closed", otherClosed.Requests, false)
+			report.ShowPRs(&buf, "Other Closed", otherClosed.Requests, false)
 
 			report.SortByID(revived.Requests)
-			report.ShowPRs(os.Stdout,
+			report.ShowPRs(&buf,
 				fmt.Sprintf("Revived (closed more than %d days ago, but with new comments)", daysBack),
 				revived.Requests,
 				false,
 			)
 
 			report.SortByID(otherOld.Requests)
-			report.ShowPRs(os.Stdout,
+			report.ShowPRs(&buf,
 				fmt.Sprintf("Old (older than %d months, but discussion in last %d days)",
 					staleMonths, daysBack),
 				otherOld.Requests,
@@ -211,19 +214,20 @@ func newReportCommand() *cobra.Command {
 			)
 
 			report.SortByID(stale.Requests)
-			report.ShowPRs(os.Stdout,
+			report.ShowPRs(&buf,
 				"Other lifecycle/stale",
 				stale.Requests,
 				false,
 			)
 
 			report.SortByID(idle.Requests)
-			report.ShowPRs(os.Stdout,
+			report.ShowPRs(&buf,
 				fmt.Sprintf("Idle (no comments for at least %d days)", daysBack),
 				idle.Requests,
 				false,
 			)
 
+			fmt.Printf(buf.String())
 			return nil
 		},
 	}
