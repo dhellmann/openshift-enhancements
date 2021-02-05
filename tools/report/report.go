@@ -2,6 +2,7 @@ package report
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"sort"
 	"strings"
@@ -31,18 +32,18 @@ const descriptionIndent = "  "
 
 // ShowPRs prints a section of the report by formatting the
 // PullRequestDetails as a list.
-func ShowPRs(name string, prds []*stats.PullRequestDetails, withDescription bool) {
+func ShowPRs(out io.Writer, name string, prds []*stats.PullRequestDetails, withDescription bool) {
 	if len(prds) == 0 {
 		return
 	}
-	fmt.Printf("\n### %s Enhancements\n", name)
+	fmt.Fprintf(out, "\n### %s Enhancements\n", name)
 
-	fmt.Printf("\n*&lt;PR ID&gt;: (activity this week / total activity) summary*\n")
+	fmt.Fprintf(out, "\n*&lt;PR ID&gt;: (activity this week / total activity) summary*\n")
 
 	if len(prds) == 1 {
-		fmt.Printf("\nThere was 1 %s pull request:\n\n", name)
+		fmt.Fprintf(out, "\nThere was 1 %s pull request:\n\n", name)
 	} else {
-		fmt.Printf("\nThere were %d %s pull requests:\n\n", len(prds), name)
+		fmt.Fprintf(out, "\nThere were %d %s pull requests:\n\n", len(prds), name)
 	}
 	for _, prd := range prds {
 		author := ""
@@ -70,7 +71,7 @@ func ShowPRs(name string, prds []*stats.PullRequestDetails, withDescription bool
 
 		title := enhancements.CleanTitle(*prd.Pull.Title)
 
-		fmt.Printf("- [%d](%s): (%d/%d) %s%s (%s)\n",
+		fmt.Fprintf(out, "- [%d](%s): (%d/%d) %s%s (%s)\n",
 			*prd.Pull.Number,
 			*prd.Pull.HTMLURL,
 			prd.RecentActivityCount,
@@ -93,7 +94,7 @@ func ShowPRs(name string, prds []*stats.PullRequestDetails, withDescription bool
 				}
 			}
 			if summary != "" {
-				fmt.Printf("\n%s\n\n", formatDescription(summary, descriptionIndent))
+				fmt.Fprintf(out, "\n%s\n\n", formatDescription(summary, descriptionIndent))
 			}
 		}
 	}
