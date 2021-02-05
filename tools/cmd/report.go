@@ -227,7 +227,9 @@ func newReportCommand() *cobra.Command {
 				false,
 			)
 
-			fmt.Printf(buf.String())
+			reformatted := report.Cleanup(buf.Bytes())
+			fmt.Printf(string(reformatted))
+
 			return nil
 		},
 	}
